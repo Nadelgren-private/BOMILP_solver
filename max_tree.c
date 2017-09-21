@@ -1092,12 +1092,12 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 /*		 printf("the segment is backwards\n");*/
 		return (*leaf)->insert_num;
 	}
-	else if(type == 2 && (double) nw_x == (double) se_x)
+	else if(type == 2 && nw_x == se_x)
 	{
 		type = 1;
 		nw_y = se_y;
 	}
-	else if(type == 2 && (double) nw_y == (double) se_y)
+	else if(type == 2 && nw_y == se_y)
 	{
 		type = 1;
 		se_x = nw_x;
@@ -1163,17 +1163,17 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 					}
 				}
 				
-				if(nw_x - (*leaf)->nw_x <= .00000001 && nw_y - (*leaf)->se_y <= .000000001 ) // The current point is dominated
+				if(nw_x - (*leaf)->nw_x <= - .000000001 && nw_y - (*leaf)->se_y <= - .000000001 ) // The current point is dominated
 				{	
 /*					printf("cur pt dom\n");*/
 					return -1; 
 				}
-				else if(nw_x < (*leaf)->nw_x && nw_y >= (*leaf)->se_y) // The point needs inserted left
+				else if(nw_x < (*leaf)->nw_x && nw_y >= (*leaf)->se_y - .000000001) // The point needs inserted left
 				{	
 /*					printf("going left\n");*/
 					mock_insert_return_val = mock_insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->left);
 				}
-				else if(nw_x >= (*leaf)->nw_x && nw_y < (*leaf)->se_y) // The point needs inserted right
+				else if(nw_x >= (*leaf)->nw_x - .000000001 && nw_y < (*leaf)->se_y) // The point needs inserted right
 				{	
 /*					printf("going right\n");*/
 					mock_insert_return_val = mock_insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->right);
@@ -1193,12 +1193,16 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 					}
 				}
 				
-				if(nw_x <= (*leaf)->nw_x && nw_y >= (*leaf)->nw_y) // The point needs inserted left
+				if((nw_x <= (*leaf)->nw_x && nw_y >= (*leaf)->nw_y) || 
+				   (nw_x < (*leaf)->nw_x && nw_y >= (*leaf)->nw_y - .00001) || 
+				   (nw_x <= (*leaf)->nw_x + .00001 && nw_y > (*leaf)->nw_y - .00001)) // The point needs inserted left
 				{	
 /*					printf("going left\n");*/
 					mock_insert_return_val = mock_insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->left);
 				}
-				else if(nw_x >= (*leaf)->se_x && nw_y <= (*leaf)->se_y) // The point needs inserted right
+				else if((nw_x >= (*leaf)->se_x && nw_y <= (*leaf)->se_y) ||
+				        (nw_x > (*leaf)->se_x && nw_y <= (*leaf)->se_y + .00001) ||
+				        (nw_x >= (*leaf)->se_x -.00001 && nw_y < (*leaf)->se_y)) // The point needs inserted right
 				{	
 /*					printf("going right\n");*/
 					mock_insert_return_val = mock_insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->right);
@@ -1260,21 +1264,21 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 				//printf("incoming: %lf,%lf to %lf,%lf\t current: %lf,%lf to %lf,%lf\n",nw_x,nw_y,se_x,se_y,(*leaf)->nw_x,(*leaf)->nw_y,(*leaf)->se_x,(*leaf)->se_y);
 				//printf("the projections are: %.12lf,%.12lf and %.12lf,%.12lf\n",x_proj,(*leaf)->nw_y,(*leaf)->nw_x,y_proj);
 				//printf("slope: %lf\t calculated: %lf\n",slope,(se_y - nw_y)/(se_x - nw_x));
-				if(se_x - (*leaf)->nw_x <= .0000001 && se_y - (*leaf)->nw_y >= -.00000001) // The segment needs inserted left
+				if(se_x - (*leaf)->nw_x <= .00001 && se_y - (*leaf)->nw_y >= -.00001) // The segment needs inserted left
 				{	//printf("inserting 10\n");
 					if(printing) printf("location 1\n");
 					returned_val = mock_insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->left);
 					if(returned_val == -1) return -1;
 					mock_insert_return_val = max(mock_insert_return_val,returned_val);
 				}
-				else if(nw_x - (*leaf)->nw_x >= -.00000001 && nw_y - (*leaf)->nw_y <= .000000001 ) // The segment needs inserted right
+				else if(nw_x - (*leaf)->nw_x >= -.00001 && nw_y - (*leaf)->nw_y <= .00001 ) // The segment needs inserted right
 				{	//printf("inserting 11\n");
 					if(printing) printf("location 2\n");
 					returned_val = mock_insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->right);
 					if(returned_val == -1) return -1;
 					mock_insert_return_val = max(mock_insert_return_val,returned_val);
 				}
-				else if(x_proj <= ((*leaf)->nw_x + .0001) || y_proj <= ((*leaf)->nw_y + .0001)) // The point is dominated
+				else if(x_proj <= ((*leaf)->nw_x + .00001) || y_proj <= ((*leaf)->nw_y + .00001)) // The point is dominated
 				{	
 					if(printing) printf("location 3\n");
 					if(use_hausdorff && epsilon > 0.)
@@ -1411,7 +1415,7 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 					if(returned_val == -1) return -1;
 					mock_insert_return_val = max(mock_insert_return_val,returned_val);
 				}
-				else if(nw_x - (*leaf)->se_x >= -.00000001 && nw_y - (*leaf)->se_y <= .00000001) // The segment needs inserted right
+				else if(nw_x - (*leaf)->se_x >= -.00001 && nw_y - (*leaf)->se_y <= .00001) // The segment needs inserted right
 				{	//printf("incoming segment: %lf,%lf to %lf,%lf \t current segment: %lf,%lf to %lf,%lf\n",nw_x,nw_y,se_x,se_y,(*leaf)->nw_x,(*leaf)->nw_y,(*leaf)->se_x,(*leaf)->se_y);
 					//printf("inserting 16\n");
 					if(printing) printf("location 6\n");
@@ -1437,13 +1441,45 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 					double nw_x_proj_i2c = (*leaf)->se_x + (1./(*leaf)->slope)*(nw_y - (*leaf)->se_y);
 					double se_x_proj_i2c = (*leaf)->se_x + (1./(*leaf)->slope)*(se_y - (*leaf)->se_y);
 					//printf("the projections: %.12lf,%.12lf,  %.12lf,%.12lf,  %.12lf,%.12lf,  %.12lf,%.12lf,  %.12lf,%.12lf,  %.12lf,%.12lf,  %.12lf,%.12lf,  %.12lf,%.12lf\n",(*leaf)->nw_x,nw_y_proj_c2i,(*leaf)->se_x,se_y_proj_c2i,nw_x_proj_c2i,(*leaf)->nw_y,se_x_proj_c2i,(*leaf)->se_y,nw_x,nw_y_proj_i2c,se_x,se_y_proj_i2c,nw_x_proj_i2c,nw_y,se_x_proj_i2c,se_y);
-					if( (*leaf)->nw_x <= x_intersect && x_intersect <= (*leaf)->se_x && nw_x <= x_intersect && x_intersect <= se_x ) // The segments intersect
+					if( (*leaf)->nw_x < x_intersect -.00001 && x_intersect < (*leaf)->se_x - .00001 && nw_x < x_intersect - .00001 && x_intersect < se_x - .00001 ) // The segments intersect
 					{
+						if( fabs(slope - (*leaf)->slope) <= .00000001 )
+						{
+/*							printf("slopes matched\n");*/
+							if( fabs(nw_x- (*leaf)->nw_x) > .00001 || fabs(nw_y-(*leaf)->nw_y) > .00001)
+							{
+								returned_val = mock_insert(type,nw_x,nw_y,(*leaf)->nw_x,(*leaf)->nw_y,slope,&(*leaf)->left);
+								if(returned_val == -1) return -1;
+								mock_insert_return_val = max(mock_insert_return_val,returned_val);
+							}
+							if( fabs(se_x- (*leaf)->se_x) > .00001 || fabs(se_y-(*leaf)->se_y) > .00001)
+							{
+								returned_val = mock_insert(type,(*leaf)->se_x,(*leaf)->se_y,se_x,se_y,slope,&(*leaf)->right);
+								if(returned_val == -1) return -1;
+							        mock_insert_return_val = max(mock_insert_return_val,returned_val);
+							}
+							return mock_insert_return_val;
+						}
 						if(printing) printf("location 8\n");
-						if( fabs(nw_x - x_intersect) <= .0000001 || fabs(se_x - x_intersect) <= .0000001)
+						if( fabs(nw_x - x_intersect) <= .00001 || fabs(se_x - x_intersect) <= .00001)
 						{
 /*							printf("the intersection is exactly an endpoint of the incoming line\n");*/
 							goto THEY_DONT_INTERSECT;
+						}
+						if( fabs((*leaf)->nw_x - x_intersect) <= .00001 || fabs((*leaf)->se_x - x_intersect) <= .00001)
+						{
+/*							printf("the intersection is exactly an endpoint of the current line\n");*/
+							if( nw_x < nw_x_proj_i2c + .00001 )
+							{
+								return -1;
+							}
+							else if( fabs(se_x- x_intersect) > .00001 || fabs(se_y-y_intersect) > .00001)
+							{
+								returned_val = mock_insert(type,x_intersect,y_intersect,se_x,se_y,slope,&(*leaf)->left);
+								if(returned_val == -1) return -1;
+								mock_insert_return_val = max(mock_insert_return_val,returned_val);
+							}
+							return mock_insert_return_val;
 						}
 						if(use_hausdorff && epsilon > 0.)
 						{
@@ -1564,11 +1600,14 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 					else // The segments don't intersect
 					{
 						THEY_DONT_INTERSECT:
-						if( nw_x - (*leaf)->nw_x <= .0000001) // first point of incoming segment is left of current segment
+						if( nw_x - (*leaf)->nw_x <= .00001) // first point of incoming segment is left of current segment
 						{
-							if((*leaf)->nw_y - (double)nw_y_proj_c2i <= .00000001 ) // || (*leaf)->se_y <= (double)se_y_proj_c2i )
+							if((*leaf)->nw_y - nw_y_proj_c2i <= .00001 ) // || (*leaf)->se_y <= (double)se_y_proj_c2i )
 							{
-								if(nw_y_proj_c2i == nw_y_proj_c2i)
+								double save = (*leaf)->se_y;
+								if(nw_y_proj_c2i == nw_y_proj_c2i && 
+								   fabs(nw_x-(*leaf)->nw_x) > .00001 && 
+								   fabs(nw_y-nw_y_proj_c2i) > .00001)
 								{
 									if(printing) printf("location 9\n");
 									//printf("inserting 27\n");
@@ -1577,7 +1616,7 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 									if(returned_val == -1) return -1;
 									mock_insert_return_val = max(mock_insert_return_val,returned_val);
 								}
-								if(se_x_proj_c2i == se_x_proj_c2i)
+								if(se_x_proj_c2i == se_x_proj_c2i && fabs(se_x_proj_c2i-se_x) > .00001 && fabs(save-se_y) > .00001)
 								{
 									if(printing) printf("location 10\n");
 									//printf("inserting 28\n");
@@ -1593,7 +1632,7 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 								goto LOCATION12;
 							}
 						}
-						else if( nw_y - (double)nw_y_proj_i2c <= .00000001 ) // first point of incoming segment lies below the current segment
+						else if( nw_y - nw_y_proj_i2c <= .00001 ) // first point of incoming segment lies below the current segment
 						{
 							LOCATION12:
 							
@@ -1709,7 +1748,9 @@ int mock_insert(int type, double nw_x, double nw_y, double se_x, double se_y, do
 						}
 						else // first point of incoming segment lies above or to the right of current segment
 						{
-							if(se_x_proj_c2i == se_x_proj_c2i)
+							if(se_x_proj_c2i == se_x_proj_c2i && 
+							   fabs(se_x_proj_c2i-se_x) > .00001 && 
+							   fabs((*leaf)->se_y-se_y) > .00001)
 							{
 								if(printing) printf("location 13\n");
 								//printf("inserting 33\n");
@@ -1799,17 +1840,17 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 	{
 		return;
 	}
-	else if(type == 2 && fabs((double) nw_x - (double) se_x) <= .00001)
+	else if(type == 2 && fabs(nw_x - se_x) <= .00001)
 	{
 		type = 1;
 		nw_y = se_y;
 	}
-	else if(type == 2 && fabs((double) nw_y - (double) se_y) <= .00001)
+	else if(type == 2 && fabs(nw_y - se_y) <= .00001)
 	{
 		type = 1;
 		se_x = nw_x;
 	}
-	if(*leaf && type == 1 && ((nw_x - (*leaf)->nw_x > -.000001 && nw_y - (*leaf)->nw_y > -.000001) || (nw_x - (*leaf)->se_x > -.000001 && nw_y - (*leaf)->se_y > -.000001)))
+	if(*leaf && type == 1 && ((fabs(nw_x - (*leaf)->nw_x) < .000001 && fabs(nw_y - (*leaf)->nw_y) < .000001) || (fabs(nw_x - (*leaf)->se_x) < .000001 && fabs(nw_y - (*leaf)->se_y) < .000001)))
 	{	
 /*		printf("point already in tree (dominated)\n");*/
 		return;
@@ -1906,7 +1947,7 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 		{
 			if((*leaf)->type == 1)
 			{
-				if(nw_x - (*leaf)->nw_x < .000001 && nw_y - (*leaf)->se_y < .000001) // The point is dominated
+				if(nw_x <= (*leaf)->nw_x && nw_y <= (*leaf)->se_y) // The point is dominated
 				{	node *temp_node = NULL;
 					if((*leaf)->left) temp_node = (*leaf)->left;
 					else if((*leaf)->right) temp_node = (*leaf)->right;
@@ -2129,7 +2170,7 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 			}	
 			else // Incoming segment compared against current segment
 			{	
-				if(se_x <= (*leaf)->nw_x && se_y >= (*leaf)->nw_y) // The segment needs inserted left
+				if(se_x <= (*leaf)->nw_x + .00001 && se_y >= (*leaf)->nw_y - .00001) // The segment needs inserted left
 				{	
 					if(printing_) printf("inserting 15\n");
 					insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->left,&(*leaf));
@@ -2139,7 +2180,7 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 /*						if((*leaf)->left->subtree_size == 1) update_depth(*leaf);*/
 /*					}*/
 				}
-				else if(nw_x >= (*leaf)->se_x && nw_y <= (*leaf)->se_y) // The segment needs inserted right
+				else if(nw_x >= (*leaf)->se_x - .00001 && nw_y <= (*leaf)->se_y + .00001) // The segment needs inserted right
 				{	//printf("incoming segment: %lf,%lf to %lf,%lf \t current segment: %lf,%lf to %lf,%lf\n",nw_x,nw_y,se_x,se_y,(*leaf)->nw_x,(*leaf)->nw_y,(*leaf)->se_x,(*leaf)->se_y);
 					if(printing_) printf("inserting 16\n");
 					insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->right,&(*leaf));
@@ -2170,7 +2211,31 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 					if( (*leaf)->nw_x - x_intersect <= .0000001 && x_intersect - (*leaf)->se_x <= .0000001 && nw_x - x_intersect <= .0000001 
 						&& x_intersect - se_x <= .0000001 ) // The segments intersect
 					{
-						if( (double)nw_x_proj_c2i <= (*leaf)->nw_x || (double)nw_y_proj_c2i <= (*leaf)->nw_y ) // Left side of incoming segment is below current segment
+						if( fabs(nw_x - x_intersect) <= .00001 && 
+						    fabs(nw_y - y_intersect) <= .00001 && 
+						    se_y - se_y_proj_i2c > .00001) //dominated
+						{
+							if(printing) printf("(%d) dominated!\n",__LINE__);
+							return;
+						}
+						else if( fabs(se_x - x_intersect) <= .00001 && 
+						         fabs(se_y - y_intersect) <= .00001 && 
+						         nw_y - nw_y_proj_i2c > .00001) //dominated
+						{
+							if(printing) printf("(%d) dominated!\n",__LINE__);
+							return;
+						}
+						if( fabs((*leaf)->nw_x - x_intersect) <= .00001 && 
+						    fabs((*leaf)->nw_y - y_intersect) <= .00001 && 
+						    se_y - se_y_proj_i2c > .00001) //dominated
+						{
+							if(printing) printf("(%d) doing something!\n",__LINE__);
+							double keep = (*leaf)->se_y;
+							insert(type,nw_x,nw_y,x_intersect,y_intersect,slope,&(*leaf)->left,&(*leaf));
+							insert(type,se_x_proj_c2i,keep,se_x,se_y,slope,&(*leaf)->right,&(*leaf));
+							return;
+						}
+						if( nw_x_proj_c2i <= (*leaf)->nw_x || nw_y_proj_c2i <= (*leaf)->nw_y ) // Left side of incoming segment is below current segment
 						{	
 							if( (*leaf)->nw_x < nw_x ) // Left most portion of current segment is non-dominated
 							{
@@ -2294,13 +2359,13 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 					{
 							if( nw_x <= (*leaf)->nw_x ) // first point of incoming segment is left of current segment
 							{
-								if((*leaf)->nw_y <= (double)nw_y_proj_c2i) // || (*leaf)->se_y <= (double)se_y_proj_c2i )
+								if((*leaf)->nw_y <= nw_y_proj_c2i) // || (*leaf)->se_y <= (double)se_y_proj_c2i )
 								{
 									double save = (*leaf)->se_y;
 									if(nw_y_proj_c2i == nw_y_proj_c2i)
 									{
 										if(printing_) printf("inserting 27\n");
-										insert(type,nw_x,nw_y,(*leaf)->nw_x,(double)nw_y_proj_c2i,slope,
+										insert(type,nw_x,nw_y,(*leaf)->nw_x,nw_y_proj_c2i,slope,
 											&(*leaf)->left,&(*leaf));
 /*										if((*leaf)->left)*/
 /*										{*/
@@ -2311,7 +2376,7 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 									if(se_x_proj_c2i == se_x_proj_c2i)
 									{
 										if(printing_) printf("inserting 28\n");
-										insert(type,(double)se_x_proj_c2i,save,se_x,se_y,slope,&(*leaf)->right,&(*leaf));
+										insert(type,se_x_proj_c2i,save,se_x,se_y,slope,&(*leaf)->right,&(*leaf));
 /*										if((*leaf)->right)*/
 /*										{*/
 /*											(*leaf)->right->parent = *leaf;*/
@@ -2349,7 +2414,7 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 									}
 									else // upper portion of current segment dominated
 									{
-										(*leaf)->nw_x = (double)se_x_proj_i2c;
+										(*leaf)->nw_x = se_x_proj_i2c;
 										(*leaf)->nw_y = se_y;
 										if(printing_) printf("inserting 30\n");
 										insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->left,&(*leaf));
@@ -2361,12 +2426,12 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 									}
 								}
 							}
-							else if( nw_y <= (double)nw_y_proj_i2c ) // first point of incoming segment lies below the current segment
+							else if( nw_y <= nw_y_proj_i2c ) // first point of incoming segment lies below the current segment
 							{
 								if( se_y <= (*leaf)->se_y ) // lower portion of current segment dominated
 								{
 									(*leaf)->se_x = nw_x;
-									(*leaf)->se_y = (double)nw_y_proj_i2c;
+									(*leaf)->se_y = nw_y_proj_i2c;
 									if(printing_) printf("inserting 31\n");
 									insert(type,nw_x,nw_y,se_x,se_y,slope,&(*leaf)->right,&(*leaf));
 /*									if((*leaf)->right)*/
@@ -2380,11 +2445,11 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 									double save1 = (*leaf)->se_x;
 									double save2 = (*leaf)->se_y;
         								(*leaf)->se_x = nw_x;
-									(*leaf)->se_y = (double)nw_y_proj_i2c;
+									(*leaf)->se_y = nw_y_proj_i2c;
 									if(se_x_proj_i2c == se_x_proj_i2c)
 									{
 										if(printing_) printf("inserting 31.5\n");
-										insert((*leaf)->type,(double)se_x_proj_i2c,se_y,save1,save2,(*leaf)->slope,
+										insert((*leaf)->type,se_x_proj_i2c,se_y,save1,save2,(*leaf)->slope,
 											&(*leaf)->right,&(*leaf));
 /*										if((*leaf)->right)*/
 /*										{*/
@@ -2406,7 +2471,7 @@ void insert(int type, double nw_x, double nw_y, double se_x, double se_y, double
 								if(se_x_proj_c2i == se_x_proj_c2i)
 								{
 									if(printing_) printf("inserting 33\n");
-									insert(type,(double)se_x_proj_c2i,(*leaf)->se_y,se_x,se_y,slope,&(*leaf)->right,&(*leaf));
+									insert(type,se_x_proj_c2i,(*leaf)->se_y,se_x,se_y,slope,&(*leaf)->right,&(*leaf));
 /*									if((*leaf)->right)*/
 /*									{*/
 /*										(*leaf)->right->parent = *leaf;*/
@@ -3987,7 +4052,7 @@ node *find_first_node_right_of_val(double val, double upper_val, node *cur_node)
 	node *temp_node = NULL;
 /*	printf("plot([%lf,%lf],[%lf,%lf],'-mo');\n",x_ideal - cur_node->se_x,x_ideal - cur_node->nw_x,y_ideal - cur_node->se_y,y_ideal - cur_node->nw_y);*/
 /*	printf("%lf \t %lf \t %lf\n",x_ideal - cur_node->se_x - val,x_ideal - cur_node->nw_x - val,y_ideal - cur_node->nw_y - upper_val);*/
-	if( (x_ideal - cur_node->se_x - val >= -.00001 || x_ideal - cur_node->nw_x - val > .0001) && y_ideal - cur_node->nw_y - upper_val <= .000005)
+	if( (cur_node->type == 1 && (x_ideal - cur_node->se_x - val >= -.00001 || x_ideal - cur_node->nw_x - val > .0001) && y_ideal - cur_node->nw_y - upper_val <= .000005) || (cur_node->type == 2 && (x_ideal - cur_node->se_x - val >= -.0000001 || x_ideal - cur_node->nw_x - val > .0001) && y_ideal - cur_node->nw_y - upper_val <= .000005))
 	{
 /*		printf("1\n");*/
 		if(cur_node->right) temp_node = find_first_node_right_of_val(val, upper_val, cur_node->right);
@@ -3997,16 +4062,18 @@ node *find_first_node_right_of_val(double val, double upper_val, node *cur_node)
 /*		printf("2\n");*/
 		temp_node = find_first_node_right_of_val(val, upper_val, cur_node->left);
 	}
-	if(temp_node && (x_ideal - temp_node->se_x - val >= -.00001 || x_ideal - temp_node->nw_x - val > .0001) && 
-		y_ideal - temp_node->nw_y - upper_val <= .000005) 
+	if(temp_node && ((temp_node->type == 1 && (x_ideal - temp_node->se_x - val >= -.00001 || x_ideal - temp_node->nw_x - val > .0001) && 
+		y_ideal - temp_node->nw_y - upper_val <= .000005) || (temp_node->type == 2 && (x_ideal - temp_node->se_x - val >= -.0000001 || x_ideal - 
+		temp_node->nw_x - val > .0001) && y_ideal - temp_node->nw_y - upper_val <= .000005)))
 		{
 /*			printf("3\n");*/
 /*			printf("returning temp node:\n");*/
 /*			printf("plot([%lf,%lf],[%lf,%lf],'-mo');\n",x_ideal - temp_node->se_x,x_ideal - temp_node->nw_x,y_ideal - temp_node->se_y,y_ideal - temp_node->nw_y);*/
 			return temp_node;
 		}
-	else if( (x_ideal - cur_node->se_x - val >= -.00001 || x_ideal - cur_node->nw_x - val > .0001) && 
-		y_ideal - cur_node->nw_y - upper_val <= .000005) 	
+	else if( (cur_node->type == 1 && (x_ideal - cur_node->se_x - val >= -.00001 || x_ideal - cur_node->nw_x - val > .0001) && 
+		y_ideal - cur_node->nw_y - upper_val <= .000005) || (cur_node->type == 2 && (x_ideal - cur_node->se_x - val >= -.0000001 || x_ideal - 
+		cur_node->nw_x - val > .0001) && y_ideal - cur_node->nw_y - upper_val <= .000005))
 		{
 /*			printf("4\n");*/
 /*			printf("returning current node:\n");*/

@@ -414,12 +414,37 @@ CPXLPptr lp_clone = NULL;
 int print_stuff_in_mss = 0;
 int these_two_needs_freed = 0;
 
+int same_box_counter = 0, same_closest_counter = 0, same_WS_MIP_solution_counter = 0, same_CH_MIP_solution_counter = 0;
+
+double prev_se_x, prev_se_y, prev_nw_x, prev_nw_y, prev_closest_se_x, prev_closest_se_y, prev_closest_nw_x, prev_closest_nw_y, prev_WS_1, prev_WS_2, prev_CH_1, prev_CH_2;
+
 void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, double se_x, double se_y, double nw_x, double nw_y)
 {
+
+/*	if(recursion_count > 7450) print_stuff_in_mss = 1;*/
+	
 	double se_x = b1->se_x;
 	double nw_x = b1->nw_x;
 	double se_y = b1->se_y;
 	double nw_y = b1->nw_y;
+	
+	if(prev_se_x == se_x && prev_se_y == se_y && prev_nw_x == nw_x && prev_nw_y == nw_y)
+	{
+		same_box_counter++;
+	}
+	else same_box_counter = 0;
+	
+	if(same_box_counter > 4)
+	{
+		printf("Encountered the same box 5 times. Exitting!\n");
+		printf("Current iteration count was: %d\n",recursion_count);
+		exit(0);
+	}
+	
+	prev_se_x = se_x;
+	prev_nw_x = nw_x;
+	prev_se_y = se_y;
+	prev_nw_y = nw_y;
 	
 /*	if(b2) changed = 0;*/
 
@@ -514,6 +539,24 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
   	closest_nodes *these_two = find_two_nodes_right_of_val(nw_x, nw_y, tree);
   	these_two_needs_freed = 1;
   	
+  	if(prev_closest_se_x == these_two->closest->se_x && prev_closest_se_y == these_two->closest->se_y && prev_closest_nw_x == these_two->closest->nw_x && prev_closest_nw_y == these_two->closest->nw_y)
+	{
+		same_closest_counter++;
+	}
+	else same_closest_counter = 0;
+	
+	if(same_closest_counter > 4)
+	{
+		printf("Encountered the same closest solution with a box 5 times. Exitting!\n");
+		printf("Current iteration count was: %d\n",recursion_count);
+		exit(0);
+	}
+	
+	prev_closest_se_x = these_two->closest->se_x;
+	prev_closest_nw_x = these_two->closest->nw_x;
+	prev_closest_se_y = these_two->closest->se_y;
+	prev_closest_nw_y = these_two->closest->nw_y;
+  	
   	REDO_THIS:
   	
   	;
@@ -535,17 +578,29 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
   	
   	if(these_two->closest && these_two->next)
   	{
+  		if(print_stuff_in_mss)
+  		{
+  			printf("closest type: %d\tvals: %lf, %lf\n",these_two->closest->type,fabs(these_two->closest->se_x - these_two->closest->nw_x),fabs(these_two->closest->se_y - these_two->closest->nw_y));
+  		}
   		if(fabs(these_two->closest->se_x - these_two->closest->nw_x) < .000001 && fabs(these_two->closest->se_y - these_two->closest->nw_y) < .000001)
   		{
   			these_two->closest->type = 1;
+  			these_two->closest->se_x = these_two->closest->nw_x;
+  			these_two->closest->se_y = these_two->closest->nw_y;
   		}
   		if(fabs(these_two->next->se_x - these_two->next->nw_x) < .000001 && fabs(these_two->next->se_y - these_two->next->nw_y) < .000001)
   		{
   			these_two->next->type = 1;
+  			these_two->next->se_x = these_two->next->nw_x;
+  			these_two->next->se_y = these_two->next->nw_y;
   		}
   		if(these_two->closest->type == 1)
   		{
-  			if((these_two->closest->se_x < these_two->next->se_x + .0000001 && fabs(these_two->closest->se_y - these_two->next->se_y) < .000001) || (these_two->closest->se_x < these_two->next->nw_x + .0000001 && fabs(these_two->closest->se_y - these_two->next->nw_y) < .000001))
+  			if(print_stuff_in_mss)
+	  		{
+	  			printf("closest type is 1. Vals: %lf, %lf, %lf, %lf\n",these_two->closest->se_x - these_two->next->se_x,fabs(these_two->closest->se_y - these_two->next->se_y),these_two->closest->se_x - these_two->next->nw_x, fabs(these_two->closest->se_y - these_two->next->nw_y));
+	  		}
+  			if((these_two->closest->se_x < these_two->next->se_x + .000001 && fabs(these_two->closest->se_y - these_two->next->se_y) < .000001) || (these_two->closest->se_x < these_two->next->nw_x + .000001 && fabs(these_two->closest->se_y - these_two->next->nw_y) < .000001))
   			{	// There is a weakly-dominated point stored. Eliminate it.
   				delete_node(these_two->closest);
   				these_two = find_two_nodes_right_of_val(nw_x, nw_y, tree);
@@ -554,7 +609,11 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
   		}
   		if(these_two->next->type == 1)
   		{
-  			if((these_two->next->se_x < these_two->closest->se_x + .0000001 && fabs(these_two->next->se_y - these_two->closest->se_y) < .000001) || (these_two->next->se_x < these_two->closest->nw_x + .0000001 && fabs(these_two->next->se_y - these_two->closest->nw_y) < .000001))
+  			if(print_stuff_in_mss)
+	  		{
+	  			printf("next type is 1. Vals: %lf, %lf, %lf, %lf\n",these_two->next->se_x - these_two->closest->se_x,fabs(these_two->next->se_y - these_two->closest->se_y),these_two->next->se_x - these_two->closest->nw_x, fabs(these_two->next->se_y - these_two->closest->nw_y));
+	  		}
+  			if((these_two->next->se_x < these_two->closest->se_x + .000001 && fabs(these_two->next->se_y - these_two->closest->se_y) < .000001) || (these_two->next->se_x < these_two->closest->nw_x + .000001 && fabs(these_two->next->se_y - these_two->closest->nw_y) < .000001))
   			{	// There is a weakly-dominated point stored. Eliminate it.
   				delete_node(these_two->next);
   				these_two = find_two_nodes_right_of_val(nw_x, nw_y, tree);
@@ -638,8 +697,8 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 		goto BOTH_SAME;
 	}
   	
-  	if(these_two->next && ( these_two->next == these_two->closest || (fabs(these_two->closest->nw_x - these_two->next->se_x) < .00001 && 
-  		fabs(these_two->closest->nw_y - these_two->next->se_y) < .00001))) //segments touch
+  	if(these_two->next && ( these_two->next == these_two->closest || (fabs(these_two->closest->nw_x - these_two->next->se_x) < .000001 && 
+  		fabs(these_two->closest->nw_y - these_two->next->se_y) < .000001))) //segments touch
   	{
   		if(print_stuff_in_mss) printf("The segments touch!\n");
   		
@@ -1166,7 +1225,23 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 					printf("Failed to get x-values from CPLEX. Line: %d. Error Code: %d\n",__LINE__,status);
 					exit(0);
 			  		goto TERMINATE;
-			  	}  	
+			  	}  
+			  	
+			  	if(prev_WS_1 == obvals[0] && prev_WS_2 == obvals[1])
+				{
+					same_WS_MIP_solution_counter++;
+				}
+				else same_WS_MIP_solution_counter = 0;
+	
+				if(same_WS_MIP_solution_counter > 4)
+				{
+					printf("Encountered the same WS MIP solution 5 times. Exitting!\n");
+					printf("Current iteration count was: %d\n",recursion_count);
+					exit(0);
+				}
+	
+				prev_WS_1 = obvals[0];
+				prev_WS_2 = obvals[1];	
 			  	
 			  	if(print_stuff_in_mss) printf("plot([%lf],[%lf],'-mo');\n",obvals[0],obvals[1]);
 			  	
@@ -1468,7 +1543,23 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 				printf("Failed to get x-values from CPLEX. Line: %d. Error Code: %d\n",__LINE__,status);
 				exit(0);
 		  		goto TERMINATE;
-		  	}  	
+		  	}
+		  	
+		  	if(prev_CH_1 == obvals[0] && prev_CH_2 == obvals[1])
+			{
+				same_CH_MIP_solution_counter++;
+			}
+			else same_CH_MIP_solution_counter = 0;
+
+			if(same_CH_MIP_solution_counter > 4)
+			{
+				printf("Encountered the same Chebychev MIP solution 5 times. Exitting!\n");
+				printf("Current iteration count was: %d\n",recursion_count);
+				exit(0);
+			}
+
+			prev_CH_1 = obvals[0];
+			prev_CH_2 = obvals[1];	  	
 		  	
 		  	if(print_stuff_in_mss) printf("plot([%lf],[%lf],'-mo');\n",obvals[0],obvals[1]);
 		  	
@@ -1987,7 +2078,7 @@ int main(int argc, char **argv)
 	printf("Num MIPs solved: %d\n\n\n",num_mips_solved);
 	int n = get_num_nodes(tree);
 	printf("Number of nodes in tree: %d\n",n);
-/*	print_inorder(tree,1);*/
+	print_inorder(tree,1);
 
         /**************************************************************************************/
   	
