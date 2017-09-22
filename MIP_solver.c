@@ -21,6 +21,8 @@ code authored by Drs. Banu Soylu and Pietro Belotti. I collaborated on this work
 #include "MIP_solver.h"
 #include "callbacks.h"
 
+#include "esa_threadpool.h"
+
 /*******************************************************************/
 /*              CPLEX VARIABLES                                    */
 /*******************************************************************/
@@ -84,6 +86,9 @@ double SE_extreme_x;
 double SE_extreme_y;
 
 double prev_cheby_sol = 0.;
+
+int n_threads = 1;
+esa_threadpool *threadpool = NULL;
 
 /*******************************************************************/
 
@@ -401,6 +406,74 @@ int compute_feas_extremes	(CPXENVptr  env,
   	/******************************************************************/
   	
 } /* End of compute_feas_extremes */
+
+void mip_solve_sequential (CPXENVptr env, box *b1, box *b2);
+/**
+ * Struct to package all arguments for mip_solve_sequential. Allows
+ * us to call it from worker threads.
+ */
+typedef struct {
+	CPXENVptr env;
+	box *b1;
+	box *b2;
+} mss_args;
+
+// NOTE: we may want to be more proactive about errors here. For now we just
+// return if an allocation fails.
+
+/**
+ * Wrapper function that can run mip_solve_sequential from inside
+ * the threadpool.
+ */
+void *mip_solve_sequential_wrapper(void *v)
+{
+	if (!v) return NULL;
+
+	mss_args *args = (mss_args*)v;
+	mip_solve_sequential(args->env, args->b1, args->b2);
+	free(args);
+	return NULL;
+}
+
+/**
+ * Function for multi-thread calls to mip_solve_sequential. If there's
+ * only one thread, mip_solve_sequential simply runs. If multiple threads,
+ * a command is constructed and sent off to the threadpool.
+ */
+#ifdef DEBUG
+static int task_id = 0;
+#endif
+void mip_solve_sequential_mt(CPXENVptr env, box *b1, box *b2)
+{
+	// threadpool is only not NULL if there are multiple threads
+	// plus, if it is NULL, we can't do multithreaded stuff anyway
+	if (threadpool) {
+		mss_args *args = malloc(sizeof(*args));
+		if (!args) return;
+		
+		args->env = env;
+		args->b1 = b1;
+		args->b2 = b2;
+
+		esa_command cmd;
+		cmd.input = (void*)args;
+		cmd.func = &mip_solve_sequential_wrapper;
+#ifdef DEBUG
+		sprintf(cmd.name, "Task: %i", task_id);
+		task_id++;
+#endif
+		// send the command to the threadpool
+		if (esa_threadpool_push_command(threadpool, cmd))
+		{
+			printf("WARNING: Could not push command to threadpool! Consider increasing the default command queue size");
+		}
+
+		return;
+	}
+
+	mip_solve_sequential(env, b1, b2);
+}
+
 
 /*******************************************************************/
 /* 	In this function we perform the main body of the
@@ -811,14 +884,16 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
   				exit(0);
   			}
   			
-  			mip_solve_sequential (env, new_box1, new_box2);		//Upper box extends up and right
-  			
+  			// mip_solve_sequential (env, new_box1, new_box2);		//Upper box extends up and right
+  			mip_solve_sequential_mt(env, new_box1, new_box2);
+
   			if(new_box2->se_y > new_box2->nw_y)
   			{
   				printf("at line %d we generated a new box that will not be oriented correctly\n",__LINE__);
   				exit(0);
   			}
-			mip_solve_sequential (env, new_box2, NULL);
+			// mip_solve_sequential (env, new_box2, NULL);
+			mip_solve_sequential_mt(env, new_box2, NULL);
 			
 			free(new_box1);
 			free(new_box2);
@@ -1111,7 +1186,8 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 		  				printf("at line %d we generated a new box that will not be oriented correctly\n",__LINE__);
 		  				exit(0);
 		  			}
-			  		mip_solve_sequential (env, new_box1, NULL);
+			  		// mip_solve_sequential (env, new_box1, NULL);
+			  		mip_solve_sequential_mt(env, new_box1, NULL);
 			  		
 			  		free(new_box1);
 			  	}
@@ -1130,8 +1206,9 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 		  				printf("at line %d we generated a new box that will not be oriented correctly\n",__LINE__);
 		  				exit(0);
 		  			}
-			  		mip_solve_sequential (env, new_box1, NULL); //new solutions were found, rerun
-			  		
+			  		// mip_solve_sequential (env, new_box1, NULL); //new solutions were found, rerun
+			  		mip_solve_sequential_mt(env, new_box1, NULL);
+
 			  		free(new_box1);
 			  			
 /*					if(leftmost_val == SE_extreme_x + 10.)*/
@@ -1317,8 +1394,9 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 		  				printf("at line %d we generated a new box that will not be oriented correctly\n",__LINE__);
 /*		  				exit(0);*/
 		  			}
-			  		mip_solve_sequential (env, new_box1, NULL); //new solutions were found, rerun
-			  		
+			  		// mip_solve_sequential (env, new_box1, NULL); //new solutions were found, rerun
+			  		mip_solve_sequential_mt(env, new_box1, NULL);
+
 			  		free(new_box1);
 			  		
 /*			  		if(b2)*/
@@ -1634,14 +1712,16 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 /*	  				exit(0);*/
 	  			}
 	  			
-		  		mip_solve_sequential (env, new_box1, NULL);
+		  		// mip_solve_sequential (env, new_box1, NULL);
+		  		mip_solve_sequential_mt (env, new_box1, NULL);
 		  		
 		  		if(new_box2->se_y > new_box2->nw_y)
 	  			{
 	  				printf("at line %d we generated a new box that will not be oriented correctly\n",__LINE__);
 /*	  				exit(0);*/
 	  			}
-		  		mip_solve_sequential (env, new_box2, NULL);
+		  		// mip_solve_sequential (env, new_box2, NULL);
+		  		mip_solve_sequential_mt (env, new_box2, NULL);
 		  		
 		  		free(new_box1);
 		  		free(new_box2);
@@ -1664,7 +1744,8 @@ void mip_solve_sequential (CPXENVptr env, box *b1, box *b2) //(CPXENVptr env, do
 		  				printf("at line %d we generated a new box that will not be oriented correctly\n",__LINE__);
 		  				exit(0);
 		  			}
-		  			mip_solve_sequential (env, new_box1, NULL);
+		  			// mip_solve_sequential (env, new_box1, NULL);
+		  			mip_solve_sequential_mt (env, new_box1, NULL);
 		  			
 		  			free(new_box1);
 		  		}
@@ -1926,6 +2007,14 @@ int main(int argc, char **argv)
 /*  		       "1 - indicating parallel mode\n\n Error!!\n");*/
 /*  		goto TERMINATE;*/
 /*  	}*/
+
+    // set the global n_threads variable
+    if (argc >= 4) n_threads = atoi(argv[3]);
+    	
+    threadpool = n_threads > 1 ? esa_threadpool_init(n_threads) : NULL;
+    if (threadpool == NULL) n_threads = 1;
+
+    printf("Running with %i threads\n", n_threads);
   	
   	/******************************************************************/
   	
@@ -2070,6 +2159,10 @@ int main(int argc, char **argv)
 /*              		      nPoints,*/
 /*              		      &nNadir);*/
 
+  	// wait for the threads to finish if needed
+  	if (threadpool != NULL)
+  		esa_threadpool_join(threadpool);
+
 	printf("IT FINISHED!!\n\n");
 	finish_time = clock();
 	double duration = (double)(finish_time - start_time) / CLOCKS_PER_SEC;
@@ -2141,6 +2234,9 @@ int main(int argc, char **argv)
 /*  	free_and_null ((char **) &indices_still_to_check);*/
 /*  	free_and_null ((char **) &indices_f_n_l);*/
 /*	delete_split_pts(first_split_pt);*/
+
+    if (threadpool != NULL)
+    	esa_threadpool_free(threadpool);
   	/******************************************************************/
 
   	return 0;

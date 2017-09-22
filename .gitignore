@@ -1,0 +1,10 @@
+# Mac stuff (idk... just in case :D)
+.DS_Store
+
+# Bin, where jacob stores the final executable
+bin/**
+
+# Object / dependency files
+*.o
+*.d
+
